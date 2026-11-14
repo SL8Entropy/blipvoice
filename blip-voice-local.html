@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blip Voice Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=Pixelify+Sans&family=Silkscreen&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f4ee;--fg:#111;--mut:#666;--ac:#111;--acfg:#f4f4ee;--hi:#9a7400}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#fff;--mut:#8a8a8a;--ac:#fff;--acfg:#000;--hi:#ffe600}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:19px/1.2 "VT323","Courier New",monospace;display:flex;justify-content:center}
+main{width:100%;max-width:760px;padding:12px 14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+h1{font-size:26px;margin:0;font-weight:400}
+.syn{display:flex;gap:10px;color:var(--mut);font-size:16px}
+.syn label{display:flex;gap:4px;align-items:center;margin:0}
+.mini{width:36px;height:22px;font:inherit;text-align:center;background:var(--bg);color:var(--fg);border:2px solid var(--mut);padding:0}
+textarea{width:100%;height:62px;background:transparent;color:var(--fg);border:2px solid var(--fg);padding:6px;font:inherit;resize:vertical;outline:0}
+canvas{width:100%;height:auto;display:block;outline:2px solid var(--mut);margin:8px 0}
+.bar,.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+button{font:inherit;background:transparent;color:var(--fg);border:2px solid var(--fg);padding:0 10px;cursor:pointer}
+button:hover:not(:disabled){background:var(--ac);color:var(--acfg)}
+button:disabled{opacity:.4;cursor:default}
+select{font:inherit;background:var(--bg);color:var(--fg);border:2px solid var(--fg);padding:0 4px;max-width:100%}
+#st{color:var(--hi);min-height:20px;margin:2px 0}
+details{border-top:2px solid var(--fg);margin-top:8px;padding-top:4px}
+details details{border:0;margin-top:2px;padding:0}
+summary{cursor:pointer;color:var(--hi);list-style:none;padding:2px 0}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ "}details[open]>summary::before{content:"▾ "}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;margin-top:4px}
+@media (max-width:640px){.g{grid-template-columns:1fr}}
+label{display:grid;grid-template-columns:92px 1fr 46px;gap:6px;align-items:center;margin:2px 0}
+label span:last-child{color:var(--hi);text-align:right}
+input[type=range]{width:100%;accent-color:var(--hi);height:16px;margin:0}
+input[type=color]{width:44px;height:22px;background:none;border:2px solid var(--fg);padding:0}
+input[type=file]{font:inherit;font-size:15px;max-width:100%}
+footer{margin-top:10px;color:var(--mut);font-size:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style></head><body><main>
+<header><h1>BLIP VOICE</h1>
+ <div class="syn"><label title="Silent invisible beat. Empty = off">pause <input id="pc" value="^" maxlength="2" class="mini"></label>
+ <label title="Clears the screen, no time added. Empty = off">wipe <input id="wm" value="///" maxlength="6" class="mini" style="width:52px"></label></div></header>
+<textarea id="t" spellcheck="false">Heya. It’s a beautiful day outside. Birds are singing, flowers are blooming...</textarea>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div class="bar"><button id="play">▶</button><button id="stop">■</button><span class="sp"></span>
+ <select id="mode"><option value="audio">Audio (.wav)</option><option value="video">Video, silent</option><option value="both" selected>Video + audio</option></select>
+ <button id="exp">⬇ EXPORT</button></div>
+<div id="st"></div>
+<details open><summary>Voice</summary>
+ <div class="row"><select id="pv"></select><input id="pnv" class="mini" placeholder="name" style="width:110px"><button id="sv" title="Save current voice under the name in the box">SAVE</button><button id="dv" title="Delete selected saved preset">DEL</button></div>
+ <div class="g" id="ctl"></div>
+ <details><summary>more</summary><div class="g" id="ctlA"></div></details>
+</details>
+<details open><summary>Video</summary>
+ <div class="row"><select id="pt"></select><input id="pnt" class="mini" placeholder="name" style="width:110px"><button id="svt" title="Save current video/text settings under the name in the box">SAVE</button><button id="dt" title="Delete selected saved preset">DEL</button></div>
+ <div class="g">
+  <label><span>Font</span><select id="font"></select><span></span></label>
+  <label><span>Size</span><input type="range" id="size" min="16" max="220" step="2" value="64"><span id="v_size"></span></label>
+  <label><span>Text</span><input type="color" id="col" value="#ffffff"><span></span></label>
+  <label><span>Background</span><input type="color" id="bg" value="#00ff00"><span></span></label>
+  <label><span>Align</span><select id="al"><option value="left">left</option><option value="center">center</option></select><span></span></label>
+  <label><span>Vertical</span><select id="va"><option value="top">top</option><option value="middle">middle</option><option value="bottom">bottom</option></select><span></span></label>
+ </div>
+ <details><summary>more</summary><div class="g">
+  <label><span>Own font</span><input type="file" id="ff" accept=".ttf,.otf,.woff,.woff2"><span></span></label>
+  <label><span>Line gap</span><input type="range" id="ls" min="1" max="2" step=".05" value="1.3"><span id="v_ls"></span></label>
+  <label><span>Resolution</span><select id="res"><option>1920x1080</option><option>1280x720</option><option>3840x2160</option><option>1080x1920</option></select><span></span></label>
+  <label><span>End hold</span><input type="range" id="hold" min="0" max="5" step=".5" value="1"><span id="v_hold"></span></label>
+  <label><span>File type</span><select id="fmt"><option value="auto">auto</option><option value="mp4">MP4</option><option value="webm">WebM</option></select><span></span></label>
+  <label title="No anti-aliasing: cleaner green-screen key"><span>Hard edges</span><input type="checkbox" id="crisp" checked><span></span></label>
+ </div></details>
+</details>
+<footer><button id="pexp">export presets</button><span>import</span><input type="file" id="pimp" accept=".json"></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id),SR=44100;
+const PRE={
+ "Sans":{f:180,j:0,w:"square",ms:60,cps:13,bits:6,rate:11025,duty:.5},
+ "Papyrus":{f:110,j:3,w:"square",ms:75,cps:12,bits:5,rate:8000,duty:.5},
+ "Toriel":{f:330,j:2,w:"triangle",ms:80,cps:14,bits:7,rate:16000,duty:.5},
+ "Flowey":{f:520,j:7,w:"square",ms:45,cps:20,bits:5,rate:11025,duty:.25},
+ "Asgore":{f:90,j:1.5,w:"saw",ms:110,cps:9,bits:6,rate:8000,duty:.5},
+ "Ghost":{f:700,j:4,w:"noise",ms:50,cps:16,bits:4,rate:6000,duty:.5}
+};
+const CTL=[["f","Pitch (Hz)",60,1000,1],["j","Pitch jitter (st)",0,12,.5],["ms","Blip length (ms)",20,160,1],["cps","Letters / sec",5,30,1],["bits","Crush bits",2,12,1],["rate","Crush rate (Hz)",2000,44100,100],["duty","Pulse width",.1,.9,.05],["pl","Pause length",.5,10,.5]];
+const S={...PRE.Sans,pl:3};
+const ctl=$("ctl"),ctlA=$("ctlA"),ADV=new Set(["ms","bits","rate","duty","pl"]);
+const wl=document.createElement("label");
+wl.innerHTML='<span>Wave</span><select id="w"><option>square</option><option>triangle</option><option>saw</option><option>noise</option></select><span></span>';
+ctl.append(wl);
+$("w").onchange=e=>S.w=e.target.value;
+CTL.forEach(([k,n,a,b,s])=>{const l=document.createElement("label");
+ l.innerHTML=`<span>${n}</span><input type="range" id="r_${k}" min="${a}" max="${b}" step="${s}"><span id="v_${k}"></span>`;
+ (ADV.has(k)?ctlA:ctl).append(l);l.querySelector("input").oninput=e=>{S[k]=+e.target.value;sync()}});
+function sync(){CTL.forEach(([k])=>{$("r_"+k).value=S[k];$("v_"+k).textContent=S[k]});$("w").value=S.w}
+sync();
+
+/* ---------- audio synthesis ---------- */
+function parse(txt,pc,wm){
+ const cp=[...txt],w=[...wm],toks=[],chars=[],wipeIdx=[];
+ for(let i=0;i<cp.length;){
+  if(w.length&&w.every((c,k)=>cp[i+k]===c)){while(toks.length&&toks[toks.length-1].t==="c"&&/\s/.test(toks[toks.length-1].c)){toks.pop();chars.pop()}toks.push({t:"w"});wipeIdx.push(chars.length);i+=w.length;while(/\s/.test(cp[i]||""))i++;continue}
+  const c=cp[i++];
+  if(pc&&c===pc)toks.push({t:"p"});else{toks.push({t:"c",c});chars.push(c)}
+ }
+ if(!chars.length){chars.push(" ");toks.push({t:"c",c:" "})}
+ return{chars,toks,wipeIdx};
+}
+const getPC=()=>[...$("pc").value][0]||"";
+const getP=()=>parse($("t").value,getPC(),$("wm").value);
+function synth(P,o){
+ const{chars,toks}=P,step=Math.round(SR/o.cps),len=Math.round(SR*o.ms/1000),pstep=Math.round(step*o.pl);
+ const np=toks.filter(t=>t.t==="p").length;
+ const out=new Float32Array((chars.length+3)*step*3+np*(pstep+1)+len);
+ let seed=7;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
+ let pos=0;const marks=[],wipes=[];
+ for(const tk of toks){
+  if(tk.t==="p"){pos+=pstep;continue}
+  if(tk.t==="w"){wipes.push(pos);continue}
+  const ch=tk.c;marks.push(pos);
+  if(/[\p{L}\p{N}]/u.test(ch)){
+   const fr=o.f*2**((rnd()-.5)*o.j/6),inc=fr/SR;let ph=0,nv=0;
+   for(let i=0;i<len;i++){
+    ph+=inc;if(ph>=1){ph-=1;nv=rnd()*2-1}
+    const v=o.w==="square"?(ph<o.duty?1:-1):o.w==="triangle"?4*Math.abs(ph-.5)-1:o.w==="saw"?2*ph-1:nv;
+    out[pos+i]+=v*Math.min(1,i/90)*(i>len*.75?(len-i)/(len*.25):1);
+   }
+   pos+=step;
+  }else if(ch===" ")pos+=Math.round(step*.6);
+  else if(/[.!?]/.test(ch))pos+=step*3;
+  else if(/[,;:]/.test(ch))pos+=Math.round(step*1.5);
+  else if(ch==="\n")pos+=step*3;
+ }
+ const y=out.slice(0,Math.max(1,Math.min(out.length,pos+len)));let pk=0;
+ for(const v of y)pk=Math.max(pk,Math.abs(v));
+ const lv=2**o.bits-1,hold=Math.max(1,Math.round(SR/o.rate));let h=0;
+ for(let i=0;i<y.length;i++){
+  if(i%hold===0)h=Math.round((y[i]/(pk||1)*.8+1)/2*lv)/lv*2-1;
+  y[i]=h;
+ }
+ return{y,marks,wipes};
+}
+function wav(y){
+ const b=new DataView(new ArrayBuffer(44+y.length*2)),w=(o,s)=>[...s].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));
+ w(0,"RIFF");b.setUint32(4,36+y.length*2,true);w(8,"WAVEfmt ");b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,1,true);
+ b.setUint32(24,SR,true);b.setUint32(28,SR*2,true);b.setUint16(32,2,true);b.setUint16(34,16,true);w(36,"data");b.setUint32(40,y.length*2,true);
+ for(let i=0;i<y.length;i++)b.setInt16(44+i*2,Math.max(-1,Math.min(1,y[i]))*32767,true);
+ return b.buffer;
+}
+function save(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),8000)}
+const status=s=>$("st").textContent=s;
+
+/* ---------- fonts ---------- */
+const FONTS=["VT323","Press Start 2P","Pixelify Sans","Silkscreen","DotGothic16","Share Tech Mono","Courier New","Comic Sans MS","Papyrus","Impact","Arial","Verdana","Times New Roman"];
+const fsel=$("font");
+function addFont(label,fam){const o=document.createElement("option");o.textContent=label;o.value=`"${fam}", sans-serif`;fsel.append(o);return o}
+FONTS.forEach(f=>addFont(f,f));
+let fk=0;const customFonts={};
+const du=f=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsDataURL(f)});
+$("ff").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ try{const fam="Custom"+(++fk),face=new FontFace(fam,await f.arrayBuffer());await face.load();document.fonts.add(face);customFonts[fam]={name:f.name,url:await du(f)};
+  const o=addFont(f.name,fam);fsel.value=o.value;refresh();status("Loaded font: "+f.name)}catch(err){status("Could not load that font file.")}};
+
+/* ---------- video text rendering ---------- */
+const cv=$("cv"),cx=cv.getContext("2d"),tc=document.createElement("canvas"),tx=tc.getContext("2d",{willReadFrequently:true});
+const getSt=()=>({font:fsel.value,size:+$("size").value,ls:+$("ls").value,color:$("col").value,bg:$("bg").value,
+ align:$("al").value,va:$("va").value,res:$("res").value,hold:+$("hold").value,fmt:$("fmt").value,crisp:$("crisp").checked});
+const fontStr=st=>`${st.size}px ${st.font}`;
+function wrap(chars,ctx,maxW){
+ const lines=[];let ls=0,lb=-1;
+ for(let i=0;i<chars.length;i++){
+  const c=chars[i];
+  if(c==="\n"){lines.push([ls,i]);ls=i+1;lb=-1;continue}
+  if(c===" ")lb=i;
+  if(ctx.measureText(chars.slice(ls,i+1).join("")).width>maxW&&i>ls){
+   if(lb>=ls){lines.push([ls,lb]);ls=lb+1}else{lines.push([ls,i]);ls=i}
+   lb=-1;i=ls-1;
+  }
+ }
+ lines.push([ls,chars.length]);return lines;
+}
+let L=null;
+function buildLayout(st,P){
+ const[W,H]=st.res.split("x").map(Number);cv.width=W;cv.height=H;
+ const m=Math.round(st.size*.8),maxW=W-2*m,{chars,wipeIdx}=P;
+ tc.width=maxW;tc.height=10;tx.font=fontStr(st);
+ const starts=[0,...wipeIdx],ends=[...wipeIdx,chars.length];
+ const pages=starts.map((start,i)=>{const pc=chars.slice(start,ends[i]);
+  const lines=wrap(pc,tx,maxW),widths=lines.map(([a,b])=>tx.measureText(pc.slice(a,b).join("")).width);
+  const lh=Math.round(st.size*st.ls),bh=lines.length*lh+Math.round(st.size*.4);
+  return{start,chars:pc,lines,widths,lh,bh}});
+ tc.width=maxW;tc.height=Math.max(...pages.map(p=>p.bh));tx.font=fontStr(st);tx.textBaseline="top";
+ pages.forEach(p=>p.by=Math.round(st.va==="top"?m:st.va==="middle"?(H-p.bh)/2:H-m-p.bh));
+ L={W,H,m,maxW,pages,st,key:null};
+}
+function drawFrame(n,w=0){
+ const{st,W,H}=L,pg=L.pages[Math.min(w,L.pages.length-1)];
+ const vis=Math.max(0,Math.min(pg.chars.length,n-pg.start));
+ cx.fillStyle=st.bg;cx.fillRect(0,0,W,H);
+ const key=w+":"+vis;
+ if(L.key!==key){
+  L.key=key;tx.clearRect(0,0,tc.width,tc.height);tx.fillStyle=st.color;
+  pg.lines.forEach(([a,b],i)=>{
+   if(vis>a){const x=st.align==="center"?(L.maxW-pg.widths[i])/2:0;
+    tx.fillText(pg.chars.slice(a,Math.min(b,vis)).join(""),x,i*pg.lh+Math.round(st.size*.1))}});
+  if(st.crisp){const id=tx.getImageData(0,0,tc.width,pg.bh),d=id.data;
+   for(let k=3;k<d.length;k+=4)d[k]=d[k]>127?255:0;tx.putImageData(id,0,0)}
+ }
+ cx.drawImage(tc,0,0,tc.width,pg.bh,L.m,pg.by,tc.width,pg.bh);
+}
+let rt=0,busy=false;
+async function refresh(){
+ const id=++rt,st=getSt();
+ try{await document.fonts.load(fontStr(st))}catch(e){}
+ if(id!==rt||busy)return;
+ const P=getP();buildLayout(st,P);drawFrame(P.chars.length,0);
+}
+["size","ls"].forEach(k=>$(k).addEventListener("input",()=>{$("v_"+k).textContent=$(k).value}));
+$("v_size").textContent=$("size").value;$("v_ls").textContent=$("ls").value;
+$("hold").addEventListener("input",()=>$("v_hold").textContent=$("hold").value+"s");$("v_hold").textContent="1s";
+["t","pc","wm","font","size","ls","col","bg","al","va","res","crisp"].forEach(k=>$(k).addEventListener("input",refresh));
+document.fonts.ready.then(refresh);
+
+/* ---------- playback + export ---------- */
+let ac,src,raf,rec;
+function setBtns(b){busy=b;$("play").disabled=$("exp").disabled=b}
+function stopAll(){cancelAnimationFrame(raf);try{src&&src.stop()}catch(e){}
+ if(rec&&rec.state!=="inactive"){rec.onstop=null;rec.stop()}rec=null;setBtns(false);refresh()}
+function pickMime(mode,fmt){
+ const a=mode==="both";
+ const mp4=[a?"video/mp4;codecs=avc1.42E01E,mp4a.40.2":"video/mp4;codecs=avc1.42E01E","video/mp4"];
+ const web=a?["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"]:["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+ const list=fmt==="mp4"?mp4.concat(web):fmt==="webm"?web:mp4.concat(web);
+ return list.find(m=>MediaRecorder.isTypeSupported(m))||"";
+}
+async function run(mode){
+ stopAll();
+ const P=getP(),st=getSt(),d=synth(P,S);
+ if(mode==="audio"){save(new Blob([wav(d.y)],{type:"audio/wav"}),"blip-voice.wav");status("Saved blip-voice.wav");return}
+ const rendering=mode==="video"||mode==="both";
+ if(rendering&&!window.MediaRecorder){status("This browser can’t record video. Try Chrome or Edge.");return}
+ try{await document.fonts.load(fontStr(st))}catch(e){}
+ buildLayout(st,P);
+ ac=ac||new(window.AudioContext||window.webkitAudioContext)();await ac.resume();
+ const buf=ac.createBuffer(1,d.y.length,SR);buf.copyToChannel(d.y,0);
+ src=ac.createBufferSource();src.buffer=buf;
+ const pre=rendering?.3:0,total=pre+d.y.length/SR+(rendering?st.hold:.4);
+ const stream=cv.captureStream(30);
+ if(mode==="preview"||mode==="both")src.connect(ac.destination);
+ if(mode==="both"){const dest=ac.createMediaStreamDestination();src.connect(dest);dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t))}
+ if(rendering){
+  const mime=pickMime(mode,st.fmt),ext=mime.startsWith("video/mp4")?"mp4":"webm",chunks=[];
+  const opt={videoBitsPerSecond:12e6};if(mime)opt.mimeType=mime;
+  rec=new MediaRecorder(stream,opt);
+  rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  rec.onstop=()=>{save(new Blob(chunks,{type:mime||"video/webm"}),"blip-voice."+ext);status("Saved blip-voice."+ext);setBtns(false)};
+  rec.start(250);
+ }
+ setBtns(true);
+ const t0=ac.currentTime+.1;src.start(t0+pre);let k=0,wk=0;
+ const tick=()=>{
+  const el=ac.currentTime-t0,s=(el-pre)*SR;
+  while(k<d.marks.length&&d.marks[k]<=s)k++;
+  while(wk<d.wipes.length&&d.wipes[wk]<=s)wk++;
+  drawFrame(el<pre?0:k,el<pre?0:wk);
+  if(rendering)status(`Recording… ${Math.max(0,el).toFixed(1)} / ${total.toFixed(1)} s`);
+  if(el>=total){if(rec)rec.stop();else setBtns(false);return}
+  raf=requestAnimationFrame(tick);
+ };
+ tick();
+}
+$("play").onclick=()=>run("preview");
+$("stop").onclick=()=>{stopAll();status("")};
+$("exp").onclick=()=>run($("mode").value);
+
+/* ---------- user presets ---------- */
+const KEY={voice:"blipVoice.voice",video:"blipVoice.video"};
+const mem={voice:{},video:{}};let lsOK=true;
+const savedMsg=n=>status(`Saved “${n}”.`+(lsOK?"":" This session only: browser storage is blocked, so use export presets to keep it."));
+const store=k=>{if(lsOK){try{return JSON.parse(localStorage.getItem(KEY[k])||"{}")}catch(e){lsOK=false}}return mem[k]};
+const put=(k,o)=>{mem[k]=o;if(lsOK){try{localStorage.setItem(KEY[k],JSON.stringify(o));return true}catch(e){lsOK=false}}status("Saved for this session only (browser storage is blocked). Use export presets to keep them.");return true};
+const VID=["size","ls","col","bg","al","va","res","hold","fmt","pc","wm"];
+function updV(){["size","ls"].forEach(k=>$("v_"+k).textContent=$(k).value);$("v_hold").textContent=$("hold").value+"s"}
+const readVoice=()=>({...S});
+function readVideo(){const o={font:fsel.value,crisp:$("crisp").checked};VID.forEach(k=>o[k]=$(k).value);
+ const fam=(o.font.match(/"(Custom\d+)"/)||[])[1];if(fam&&customFonts[fam])o.fontData=customFonts[fam];return o}
+async function applyVideo(o){
+ if(o.fontData){const have=[...fsel.options].find(x=>x.textContent===o.fontData.name);
+  if(have)o.font=have.value;
+  else{try{const fam="Custom"+(++fk),face=new FontFace(fam,"url("+o.fontData.url+")");await face.load();document.fonts.add(face);customFonts[fam]=o.fontData;o.font=addFont(o.fontData.name,fam).value}catch(e){status("Couldn’t restore the saved font.")}}}
+ if(o.font)fsel.value=o.font;$("crisp").checked=o.crisp!==false;
+ VID.forEach(k=>{if(o[k]!==undefined)$(k).value=o[k]});updV();refresh();
+}
+function applyVoice(o){Object.assign(S,{...PRE.Sans,pl:3},o);sync()}
+function armDel(btn,fn){let t;btn.onclick=()=>{if(btn.dataset.arm){clearTimeout(t);delete btn.dataset.arm;btn.textContent="DEL";fn()}
+ else{btn.dataset.arm=1;btn.textContent="SURE?";t=setTimeout(()=>{delete btn.dataset.arm;btn.textContent="DEL"},2500)}}}
+function wire(kind,selId,nameId,saveId,delId,read,apply){
+ const sel=$(selId),nm=$(nameId);
+ const fill=pick=>{const o=store(kind);sel.innerHTML="<option value=''>— mine —</option>";
+  Object.keys(o).forEach(n=>{const op=document.createElement("option");op.value=op.textContent=n;sel.append(op)});if(pick)sel.value=pick};
+ sel.onchange=()=>{const o=store(kind)[sel.value];if(o){nm.value=sel.value;apply(o)}};
+ $(saveId).onclick=()=>{const n=nm.value.trim();if(!n){status("Type a preset name in the box first.");nm.focus();return}
+  const o=store(kind);o[n]=read();if(put(kind,o)){fill(n);savedMsg(n)}};
+ armDel($(delId),()=>{const n=sel.value;if(!n)return;const o=store(kind);delete o[n];put(kind,o);nm.value="";fill();status(`Deleted “${n}”.`)});
+ fill();return fill;
+}
+function fillVoice(pick){
+ const u=store("voice"),sel=$("pv");sel.innerHTML="";
+ const grp=(label,items,pre)=>{if(!items.length)return;const g=document.createElement("optgroup");g.label=label;
+  items.forEach(n=>{const o=document.createElement("option");o.value=pre+n;o.textContent=n;g.append(o)});sel.append(g)};
+ grp("Built-in",Object.keys(PRE),"b:");grp("Mine",Object.keys(u),"u:");
+ if(pick)sel.value=pick;
+}
+$("pv").onchange=()=>{const v=$("pv").value,n=v.slice(2);if(v[0]==="u")$("pnv").value=n;applyVoice(v[0]==="b"?PRE[n]:store("voice")[n])};
+$("sv").onclick=()=>{const n=$("pnv").value.trim();if(!n){status("Type a preset name in the box first.");$("pnv").focus();return}
+ const o=store("voice");o[n]=readVoice();if(put("voice",o)){fillVoice("u:"+n);savedMsg(n)}};
+armDel($("dv"),()=>{const v=$("pv").value;if(v[0]!=="u")return;const n=v.slice(2),o=store("voice");delete o[n];put("voice",o);$("pnv").value="";fillVoice("b:Sans");applyVoice(PRE.Sans);status(`Deleted “${n}”.`)});
+const fillV=()=>fillVoice($("pv").value),fillT=wire("video","pt","pnt","svt","dt",readVideo,applyVideo);
+fillVoice("b:Sans");
+$("pexp").onclick=()=>save(new Blob([JSON.stringify({voice:store("voice"),video:store("video")},null,1)],{type:"application/json"}),"blip-presets.json");
+$("pimp").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ try{const j=JSON.parse(await f.text());put("voice",{...store("voice"),...(j.voice||{})});put("video",{...store("video"),...(j.video||{})});fillV();fillT();status("Presets imported.")}
+ catch(err){status("That file isn’t a presets file.")}e.target.value=""};
+</script></body></html>
