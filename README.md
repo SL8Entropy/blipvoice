@@ -4,9 +4,9 @@ A single-file, offline-capable tool that turns typed text into an Undertale-styl
 
 It can export:
 
-- **Audio only**: a `.wav` of the blips.
-- **Video only**: the typewriter text on a solid background, with no sound.
-- **Video + audio**: both in one file.
+- **Audio only**: an `.m4a` (AAC audio) of the blips.
+- **Video only**: the typewriter text on a solid background, as an `.mp4` with no sound.
+- **Video + audio**: both together in one `.mp4`.
 
 The video has **no text box**. It is only text on a flat colour (green by default) so you can chroma-key it over your own footage.
 
@@ -18,7 +18,7 @@ The video has **no text box**. It is only text on a flat colour (green by defaul
 
 | | |
 |---|---|
-| Browser | **Chrome or Edge** (recommended). Firefox works but records **WebM** only. Safari is untested. |
+| Browser | **Chrome or Edge** (recent versions), which can encode MP4 directly. Other browsers use a slower fallback recorder (see Troubleshooting). |
 | Internet | Optional. Only needed for the pixel fonts (loaded from Google Fonts). Offline, those fall back to a plain font. |
 | Files | Just `blip-voice-local.html`. |
 
@@ -28,7 +28,7 @@ The video has **no text box**. It is only text on a flat colour (green by defaul
 2. Type your text in the top box.
 3. Press **▶ PLAY** to preview the sound and the typing animation.
 4. Pick an output type in the dropdown (Audio / Video only / Video + audio) and press **⬇ EXPORT**.
-5. Your browser downloads `blip-voice.wav`, `blip-voice.mp4` or `blip-voice.webm`.
+5. Your browser downloads `blip-voice.mp4` (or `blip-voice.m4a` for audio only).
 
 ---
 
@@ -102,7 +102,7 @@ Starting points: for a sharp Undertale feel try square wave, 4 to 6 bits, and 80
 | **Align / Vertical** | Left or centre, and top, middle or bottom. |
 | **Resolution** (under **more**) | 1920×1080, 1280×720, 3840×2160 or vertical 1080×1920. |
 | **End hold (s)** | How long the finished text stays on screen after the last blip. |
-| **File type** | Auto (MP4 if the browser supports it), MP4, or WebM. |
+| **Frame rate** (under **more**) | 24, 30 or 60 fps. Defaults to 24. |
 | **Hard edges** | Removes soft anti-aliasing so every text pixel is fully solid. This gives much cleaner keying with no green fringe. |
 
 Layout is computed from the **full** text before typing starts, so words never jump between lines as they appear. Centred lines stay centred while typing.
@@ -131,12 +131,13 @@ Note: clearing your browser data erases saved presets, and some browsers treat l
 
 ## 7. Exporting
 
-- **Audio only** is instant and writes a 16-bit mono WAV at 44.1 kHz.
-- **Video exports record in real time.** A 10-second line takes about 10 seconds plus the hold time. A status line shows progress.
-- **Keep the tab open and visible while recording.** Browsers throttle hidden tabs, which can freeze the animation.
-- The video begins with 0.3 s of blank background and ends with the hold time, which gives you trim room.
-- Video runs at 30 fps with a 12 Mbit/s target. Flat colour compresses well, so files stay small.
-- The MP4 route depends on your browser's encoder. If an editor rejects the MP4, switch **File type** to WebM, or convert it with any converter such as HandBrake.
+- **Direct MP4.** In Chrome and Edge the video is encoded frame by frame (H.264 video, AAC audio) straight into an `.mp4`. It is **faster than real time**, and every frame is placed at its exact time, so it doesn't drift against the audio and doesn't depend on the tab staying in front.
+- **Frame-exact sync.** The first letter appears on the first frame and the first blip starts at 0 s. Add `^` at the start of your text if you want lead-in silence. Choose the **Frame rate** to match your project (24 fps by default).
+- **Audio only** exports an `.m4a` (AAC in an MP4 container).
+- The video ends with the **End hold** time after the last blip.
+- Quality is set automatically (about 12 Mbit/s at 1080p 24 fps). H.264 stores colour at half resolution, so very sharp green-screen edges can bleed slightly. Leave **Hard edges** on to keep this to a minimum.
+- **Fallback.** If the browser can't encode MP4 itself, the page uses the browser's built-in recorder instead. That records in real time, so keep the tab visible and expect a 0.3 s blank lead-in. It saves MP4 if the browser allows it, otherwise WebM. If not even that works for audio-only, you get a `.wav`.
+- Press **■** to cancel an export in progress.
 
 ### Using it over footage (green screen)
 
@@ -154,8 +155,8 @@ Note: clearing your browser data erases saved presets, and some browsers treat l
 | Text uses the wrong font | Pixel fonts need internet. Upload a font file to use one offline. |
 | System font (Papyrus, Comic Sans) not changing | It isn't installed on your computer, so the browser falls back. |
 | No sound while previewing | Click the page first, since browsers block audio until you interact. Check your volume. |
-| Video won't record | Use Chrome or Edge. Some browsers lack `MediaRecorder` or MP4 support. |
-| Video is stuttery or frozen | You switched tabs during recording. Keep the tab in front and avoid heavy load. 4K is demanding, so try 1080p. |
+| Video won't export | Use a recent Chrome or Edge. The status line says if the direct MP4 encoder failed and the fallback recorder was used. |
+| Export is slow or the page freezes | 4K is demanding, so try 1080p. Hidden tabs are throttled, so keep the tab visible. |
 | Green fringes on text edges | Turn on **Hard edges**, or tighten your editor's key settings. |
 | Preset didn't save | If your browser blocks local storage, presets last only until you close or reload the page, and the status line says so. Use **export presets** to keep them. |
 | Some characters make no sound | Only letters and digits blip. Symbols, emoji and punctuation are silent by design, though they still display. |
@@ -166,15 +167,14 @@ Note: clearing your browser data erases saved presets, and some browsers treat l
 
 - **Audio**: for each letter and digit, a short waveform (square, triangle, saw or noise) is generated into a sample buffer. Then the whole buffer is bit-crushed by holding samples (rate reduction) and rounding to a limited number of levels (bit reduction).
 - **Parsing**: the text is split into letters, pause markers and wipe markers *before* layout, so markers can't affect spacing or alignment.
-- **Video**: text is drawn onto a canvas, revealed letter by letter in sync with the blip timings, and the canvas plus the audio are recorded together with the browser's `MediaRecorder`.
+- **Video**: text is drawn onto a canvas, revealed letter by letter in sync with the blip timings. Each canvas frame and the audio are encoded with WebCodecs (H.264 and AAC) and wrapped into an MP4 by the bundled [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) library (MIT licence, included in the file).
 - **Hard edges**: the text is drawn to an offscreen canvas and every pixel's alpha is snapped to fully on or fully off before compositing.
 
 ## 10. Known limitations
 
-- Video export is real-time, not faster than playback.
 - No transparent (alpha) video. Use the chroma key route.
 - Only one pitch pattern per voice: pitch is random per letter rather than tied to specific letters.
-- Not every browser can encode MP4, and I have not tested every browser and editor combination.
+- Direct MP4 needs a browser with WebCodecs (recent Chrome or Edge). I have not tested every browser and editor combination.
 - Custom fonts stored in presets can make the preset data large.
 
 ## 11. Files
